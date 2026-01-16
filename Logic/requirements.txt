@@ -1,0 +1,21 @@
+# Core Dependencies for Public Speaking Evaluation System
+# Optimized for scale (200K+ students, 800K+ files/week)
+
+# Speech Recognition (Local Whisper - Optimized)
+faster-whisper>=1.0.0
+
+# Audio/Video Processing (Handles both, scales well)
+ffmpeg-python==0.2.0
+
+# Lightweight utilities (Python 3.12 compatible)
+numpy>=1.26.0
+
+# FastAPI Server Dependencies
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.6.0
+python-multipart>=0.0.9
+httpx>=0.27.0  # For async webhook callbacks
+
+# Note: Requires ffmpeg installed on system
+# Install: sudo apt install ffmpeg (Linux) or brew install ffmpeg (Mac)

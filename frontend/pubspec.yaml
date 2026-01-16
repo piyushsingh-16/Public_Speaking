@@ -1,0 +1,42 @@
+name: frontend
+description: "Speech Star - A child-friendly public speaking evaluation app"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Audio recording
+  record: ^6.1.2
+  path_provider: ^2.1.2
+  permission_handler: ^11.3.0
+  file_picker: ^8.0.0
+
+  # HTTP requests
+  http: ^1.2.0
+  http_parser: ^4.0.2
+
+  # UI and animations
+  flutter_animate: ^4.5.0
+  percent_indicator: ^4.2.3
+
+  # State management
+  provider: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+dependency_overrides:
+  record_linux: ^1.1.0
+
+flutter:
+  uses-material-design: true

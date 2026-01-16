@@ -1,0 +1,121 @@
+# ===========================================
+# Combined .gitignore for Flutter + FastAPI
+# ===========================================
+
+# -------------------------------------------
+# OS / System Files
+# -------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# -------------------------------------------
+# IDE / Editor
+# -------------------------------------------
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.atom/
+.history
+
+# -------------------------------------------
+# Python / FastAPI (Logic folder)
+# -------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+eggs/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Python cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# Evaluation Results (Logic specific)
+evaluation_results/
+
+# Whisper Model Cache
+models/
+
+# -------------------------------------------
+# Flutter / Dart (Frontend folder)
+# -------------------------------------------
+# Dart/Flutter generated files
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+
+# Flutter documentation
+**/doc/api/
+
+# iOS specific
+**/ios/Flutter/.last_build_id
+**/ios/Pods/
+**/ios/.symlinks/
+
+# Android specific
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+.gradle/
+local.properties
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Build artifacts
+.build/
+.buildlog/
+.swiftpm/
+migrate_working_dir/
+
+# -------------------------------------------
+# Temporary / Generated Files
+# -------------------------------------------
+temp/
+tmp/
+*.tmp
+*.log
+*.class
+processed_*
+
+# -------------------------------------------
+# Audio / Media Files (for testing)
+# -------------------------------------------
+*.mp3
+*.wav
+*.m4a
+*.ogg
+*.flac
+*.webm
+*.mp4
+*.avi
+*.mov
+
+# -------------------------------------------
+# Misc
+# -------------------------------------------
+.svn/
+*.bak
