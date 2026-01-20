@@ -1,53 +1,5 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-dist/
-build/
+# This folder uses the root .gitignore
+# See Public_Speaking/.gitignore for all ignore rules
 
-# Virtual Environment
-venv/
-env/
-ENV/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Evaluation Results
+# Local overrides (if needed)
 evaluation_results/
-*.json
-
-# Audio Files (for testing)
-*.mp3
-*.wav
-*.m4a
-*.ogg
-*.flac
-*.webm
-*.mp4
-*.avi
-*.mov
-
-# Temporary Files
-temp/
-tmp/
-*.tmp
-processed_*
-
-# Whisper Model Cache (optional - comment out if you want to version control models)
-.cache/
-models/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log

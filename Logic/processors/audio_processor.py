@@ -7,6 +7,7 @@ import os
 import ffmpeg
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 
 class AudioProcessor:
@@ -15,24 +16,29 @@ class AudioProcessor:
     Optimized for scale with ffmpeg.
     """
 
-    SUPPORTED_FORMATS = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.webm']
+    SUPPORTED_FORMATS = [".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm"]
     TARGET_SAMPLE_RATE = 16000  # Whisper's native sample rate
 
-    def __init__(self, temp_dir=None):
+    def __init__(self, temp_dir: Optional[str] = None):
         """
-        Initialize AudioProcessor
+        Initialize AudioProcessor.
 
         Args:
             temp_dir: Directory for temporary files (optional)
         """
         self.temp_dir = temp_dir or tempfile.gettempdir()
 
-    def is_supported_format(self, file_path):
-        """Check if file format is supported"""
+    def is_supported_format(self, file_path: str) -> bool:
+        """Check if file format is supported."""
         ext = Path(file_path).suffix.lower()
         return ext in self.SUPPORTED_FORMATS
 
-    def preprocess_audio(self, input_path, output_path=None, normalize=True):
+    def preprocess_audio(
+        self,
+        input_path: str,
+        output_path: Optional[str] = None,
+        normalize: bool = True
+    ) -> str:
         """
         Preprocess audio file using ffmpeg.
 
@@ -64,13 +70,13 @@ class AudioProcessor:
 
             if normalize:
                 # Normalize audio to -20dB (good for speech)
-                audio = audio.filter('loudnorm', I=-20, TP=-1.5, LRA=11)
+                audio = audio.filter("loudnorm", I=-20, TP=-1.5, LRA=11)
 
             # Output configuration: mono, 16kHz WAV
             output = ffmpeg.output(
                 audio,
                 output_path,
-                acodec='pcm_s16le',
+                acodec="pcm_s16le",
                 ac=1,
                 ar=self.TARGET_SAMPLE_RATE
             )
@@ -81,9 +87,11 @@ class AudioProcessor:
             return output_path
 
         except ffmpeg.Error as e:
-            raise RuntimeError(f"FFmpeg processing failed: {e.stderr.decode() if e.stderr else str(e)}")
+            raise RuntimeError(
+                f"FFmpeg processing failed: {e.stderr.decode() if e.stderr else str(e)}"
+            )
 
-    def get_audio_duration(self, file_path):
+    def get_audio_duration(self, file_path: str) -> float:
         """
         Get duration of audio file in seconds.
 
@@ -95,13 +103,13 @@ class AudioProcessor:
         """
         try:
             probe = ffmpeg.probe(file_path)
-            duration = float(probe['format']['duration'])
+            duration = float(probe["format"]["duration"])
             return duration
         except Exception as e:
             raise RuntimeError(f"Failed to get audio duration: {str(e)}")
 
-    def cleanup(self, file_path):
-        """Remove temporary file"""
+    def cleanup(self, file_path: str) -> None:
+        """Remove temporary file safely."""
         try:
             if os.path.exists(file_path) and self.temp_dir in file_path:
                 os.remove(file_path)

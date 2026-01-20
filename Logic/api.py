@@ -1,6 +1,10 @@
 """
 FastAPI Server for Public Speaking Evaluator
 Provides REST API endpoints for audio evaluation with file upload support
+
+Returns dual structure:
+- raw_evaluation: Detailed data for teachers/parents
+- child_presentation: Age-appropriate visual feedback for Flutter UI
 """
 
 import os
@@ -16,16 +20,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 
-from evaluator import PublicSpeakingEvaluator
-from audio_processor import AudioProcessor
+from .evaluator import PublicSpeakingEvaluator
+from .processors.audio_processor import AudioProcessor
 
 
 # Job status enum
 class JobStatus(str, Enum):
     PENDING = "pending"
     PREPROCESSING = "preprocessing"
+    EXTRACTING_FEATURES = "extracting_features"
     TRANSCRIBING = "transcribing"
     ANALYZING = "analyzing"
     COMPLETED = "completed"
@@ -52,7 +57,7 @@ async def lifespan(app: FastAPI):
     global evaluator
 
     print("\n" + "=" * 70)
-    print("Starting Public Speaking Evaluation API")
+    print("Starting Public Speaking Evaluation API v3.0")
     print("=" * 70)
 
     whisper_model = os.getenv("WHISPER_MODEL", "base")
@@ -71,29 +76,44 @@ async def lifespan(app: FastAPI):
             device=device,
             compute_type=compute_type
         )
-        print("\n✓ API Server ready!")
+        print("\nAPI Server ready!")
         print("=" * 70)
         print("\nAPI Documentation:")
         print("  - Swagger UI: http://localhost:8000/docs")
         print("  - ReDoc: http://localhost:8000/redoc")
+        print("\nNew in v3.0:")
+        print("  - Audio feature extraction (loudness, pitch, stamina)")
+        print("  - Age-appropriate child presentations")
+        print("  - Dual response structure (raw + child)")
         print("=" * 70 + "\n")
     except Exception as e:
-        print(f"\n✗ Failed to initialize evaluator: {str(e)}")
+        print(f"\nFailed to initialize evaluator: {str(e)}")
         raise
 
     yield
 
     # Cleanup on shutdown
     print("\nShutting down API server...")
-    # Optionally cleanup upload directory
-    # shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
 
 
 # Initialize FastAPI app
 app = FastAPI(
     title="Public Speaking Evaluation API",
-    description="AI-powered public speaking evaluation for school students (Ages 3-18)",
-    version="2.0.0",
+    description="""
+AI-powered public speaking evaluation for school students (Ages 3-18).
+
+**New in v3.0:**
+- Audio feature extraction (loudness, pitch variation, stamina)
+- Age-appropriate child presentations (pre-primary, lower-primary, upper-primary, detailed)
+- Dual response structure with `raw_evaluation` and `child_presentation`
+
+**Age Groups:**
+- **Pre-primary (3-5)**: Character-based feedback (lion/mouse voice)
+- **Lower-primary (6-8)**: Icon-based metrics with badges
+- **Upper-primary (9-10)**: Progress bars with single improvement tip
+- **Middle/Secondary (11+)**: Full detailed analysis
+    """,
+    version="3.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan
@@ -126,7 +146,8 @@ class JobStatusResponse(BaseModel):
     progress: Optional[str] = None
     created_at: str
     updated_at: str
-    result: Optional[dict] = None
+    raw_evaluation: Optional[dict] = None
+    child_presentation: Optional[dict] = None
     error: Optional[str] = None
 
 
@@ -137,6 +158,7 @@ class HealthResponse(BaseModel):
     model_info: dict
     version: str
     active_jobs: int
+    features: list
 
 
 class WebhookPayload(BaseModel):
@@ -145,7 +167,8 @@ class WebhookPayload(BaseModel):
     status: JobStatus
     created_at: str
     completed_at: str
-    result: Optional[dict] = None
+    raw_evaluation: Optional[dict] = None
+    child_presentation: Optional[dict] = None
     error: Optional[str] = None
 
 
@@ -165,7 +188,7 @@ async def process_evaluation_task(
     try:
         # Update status: preprocessing
         jobs[job_id]["status"] = JobStatus.PREPROCESSING
-        jobs[job_id]["progress"] = "Preprocessing audio..."
+        jobs[job_id]["progress"] = "Preparing your audio..."
         jobs[job_id]["updated_at"] = datetime.now().isoformat()
 
         # Validate audio format
@@ -173,12 +196,17 @@ async def process_evaluation_task(
         if not audio_processor.is_supported_format(audio_path):
             raise ValueError(f"Unsupported audio format. Supported: {AudioProcessor.SUPPORTED_FORMATS}")
 
-        # Update status: transcribing
-        jobs[job_id]["status"] = JobStatus.TRANSCRIBING
-        jobs[job_id]["progress"] = "Transcribing speech..."
+        # Update status: extracting features
+        jobs[job_id]["status"] = JobStatus.EXTRACTING_FEATURES
+        jobs[job_id]["progress"] = "Analyzing your voice..."
         jobs[job_id]["updated_at"] = datetime.now().isoformat()
 
-        # Run evaluation (this takes 30-60 seconds)
+        # Update status: transcribing
+        jobs[job_id]["status"] = JobStatus.TRANSCRIBING
+        jobs[job_id]["progress"] = "Listening to your speech..."
+        jobs[job_id]["updated_at"] = datetime.now().isoformat()
+
+        # Run evaluation (this includes all steps)
         result = evaluator.evaluate(
             audio_path=audio_path,
             student_age=student_age,
@@ -189,7 +217,7 @@ async def process_evaluation_task(
 
         # Update status: analyzing
         jobs[job_id]["status"] = JobStatus.ANALYZING
-        jobs[job_id]["progress"] = "Analyzing metrics..."
+        jobs[job_id]["progress"] = "Analyzing your performance..."
         jobs[job_id]["updated_at"] = datetime.now().isoformat()
 
         # Check for evaluation errors
@@ -198,11 +226,13 @@ async def process_evaluation_task(
 
         # Update status: completed
         jobs[job_id]["status"] = JobStatus.COMPLETED
-        jobs[job_id]["progress"] = "Evaluation complete"
-        jobs[job_id]["result"] = result
+        jobs[job_id]["progress"] = "Evaluation complete!"
+        jobs[job_id]["raw_evaluation"] = result.get("raw_evaluation")
+        jobs[job_id]["child_presentation"] = result.get("child_presentation")
         jobs[job_id]["updated_at"] = datetime.now().isoformat()
 
-        print(f"[{job_id}] Evaluation completed. Overall score: {result['scores']['overall']}")
+        overall_score = result.get("raw_evaluation", {}).get("scores", {}).get("overall", "N/A")
+        print(f"[{job_id}] Evaluation completed. Overall score: {overall_score}")
 
         # Send webhook callback if provided
         if callback_url:
@@ -211,7 +241,8 @@ async def process_evaluation_task(
                 status=JobStatus.COMPLETED,
                 created_at=jobs[job_id]["created_at"],
                 completed_at=datetime.now().isoformat(),
-                result=result
+                raw_evaluation=result.get("raw_evaluation"),
+                child_presentation=result.get("child_presentation")
             )
 
             try:
@@ -273,15 +304,27 @@ async def root():
     """Root endpoint with API information"""
     return {
         "name": "Public Speaking Evaluation API",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "status": "running",
         "docs": "/docs",
         "health": "/health",
+        "features": [
+            "Audio feature extraction (loudness, pitch, stamina)",
+            "Age-appropriate child presentations",
+            "9 evaluation metrics",
+            "Dual response structure (raw + child)"
+        ],
         "endpoints": {
             "POST /evaluate": "Upload audio file for evaluation (multipart/form-data)",
             "GET /jobs/{job_id}": "Poll job status and get results",
             "GET /jobs": "List all jobs",
             "GET /health": "Health check"
+        },
+        "age_groups": {
+            "pre_primary (3-5)": "Character-based feedback",
+            "lower_primary (6-8)": "Icon-based metrics",
+            "upper_primary (9-10)": "Progress bars + tips",
+            "middle/secondary (11+)": "Full detailed analysis"
         },
         "supported_formats": AudioProcessor.SUPPORTED_FORMATS
     }
@@ -304,15 +347,21 @@ async def health_check():
 
     active_jobs = sum(1 for j in jobs.values() if j["status"] in [
         JobStatus.PENDING, JobStatus.PREPROCESSING,
-        JobStatus.TRANSCRIBING, JobStatus.ANALYZING
+        JobStatus.EXTRACTING_FEATURES, JobStatus.TRANSCRIBING, JobStatus.ANALYZING
     ])
 
     return HealthResponse(
         status="healthy" if model_loaded else "initializing",
         model_loaded=model_loaded,
         model_info=model_info,
-        version="2.0.0",
-        active_jobs=active_jobs
+        version="3.0.0",
+        active_jobs=active_jobs,
+        features=[
+            "loudness_detection",
+            "pitch_variation",
+            "stamina_analysis",
+            "age_appropriate_output"
+        ]
     )
 
 
@@ -328,26 +377,28 @@ async def evaluate_speech(
     """
     Upload and evaluate a public speaking audio file.
 
-    **How to use:**
-    1. Upload an audio file with student info
-    2. Receive a job_id immediately
-    3. Poll `GET /jobs/{job_id}` every 2-3 seconds until status is "completed"
-    4. Get the full results from the response
+    **Response Structure:**
 
-    **Request (multipart/form-data):**
-    - `audio_file`: Audio file (required) - MP3, WAV, M4A, OGG, FLAC, WEBM
-    - `student_age`: Student's age 3-18 (required)
-    - `student_name`: Student's name (optional)
-    - `topic`: Speech topic (optional)
-    - `callback_url`: Webhook URL to POST results (optional)
+    The completed job returns a dual structure:
 
-    **Response:**
     ```json
     {
-        "job_id": "abc-123-def",
-        "status": "pending",
-        "message": "Evaluation job queued. Poll GET /jobs/{job_id} for results.",
-        "created_at": "2024-01-01T12:00:00"
+        "raw_evaluation": {
+            "metadata": { "student_age": 8, "age_group": "lower_primary", ... },
+            "scores": { "overall": 75, "clarity": 80, "loudness": 85, ... },
+            "detailed_analysis": { ... },
+            "improvement_suggestions": [ ... ]
+        },
+        "child_presentation": {
+            "age_group": "lower_primary",
+            "metrics": [
+                {"id": "voice_strength", "icon": "🔊", "level": 4},
+                {"id": "pace", "icon": "👍"},
+                {"id": "expression", "icon": "😊", "level": 3}
+            ],
+            "badge": {"name": "Confident Speaker", "emoji": "🏅"},
+            "message": {"text": "Great job!"}
+        }
     }
     ```
 
@@ -398,7 +449,8 @@ async def evaluate_speech(
             "topic": topic,
             "callback_url": callback_url
         },
-        "result": None,
+        "raw_evaluation": None,
+        "child_presentation": None,
         "error": None
     }
 
@@ -411,7 +463,7 @@ async def evaluate_speech(
         student_name=student_name,
         topic=topic,
         callback_url=callback_url,
-        cleanup_file=True  # Clean up uploaded file after processing
+        cleanup_file=True
     )
 
     print(f"[{datetime.now().isoformat()}] Job {job_id} created")
@@ -428,7 +480,7 @@ async def evaluate_speech(
 
 class EvaluatePathRequest(BaseModel):
     """Request model for path-based evaluation"""
-    audio_path: str = Field(..., description="Path to audio file on server (MP3, WAV, M4A, OGG, FLAC, WEBM)")
+    audio_path: str = Field(..., description="Path to audio file on server")
     student_age: int = Field(..., ge=3, le=18, description="Student age (3-18 years)")
     student_name: Optional[str] = Field(None, description="Student name (optional)")
     topic: Optional[str] = Field(None, description="Speech topic (optional)")
@@ -443,34 +495,7 @@ async def evaluate_speech_from_path(
     """
     Evaluate a public speaking audio file using a file path.
 
-    **How to use:**
-    1. Provide the path to an audio file on the server
-    2. Receive a job_id immediately
-    3. Poll `GET /jobs/{job_id}` every 2-3 seconds until status is "completed"
-    4. Get the full results from the response
-
-    **Request (JSON):**
-    ```json
-    {
-        "audio_path": "/path/to/audio.mp3",
-        "student_age": 10,
-        "student_name": "John",
-        "topic": "My Speech",
-        "callback_url": "http://example.com/webhook"
-    }
-    ```
-
-    **Response:**
-    ```json
-    {
-        "job_id": "abc-123-def",
-        "status": "pending",
-        "message": "Evaluation job queued. Poll GET /jobs/{job_id} for results.",
-        "created_at": "2024-01-01T12:00:00"
-    }
-    ```
-
-    **Processing Time:** 30-60 seconds depending on audio length
+    Use this endpoint when the audio file is already on the server.
     """
     global evaluator, jobs
 
@@ -513,7 +538,8 @@ async def evaluate_speech_from_path(
             "topic": request.topic,
             "callback_url": request.callback_url
         },
-        "result": None,
+        "raw_evaluation": None,
+        "child_presentation": None,
         "error": None
     }
 
@@ -526,7 +552,7 @@ async def evaluate_speech_from_path(
         student_name=request.student_name,
         topic=request.topic,
         callback_url=request.callback_url,
-        cleanup_file=False  # Don't delete the original file
+        cleanup_file=False
     )
 
     print(f"[{datetime.now().isoformat()}] Job {job_id} created (from path)")
@@ -549,31 +575,11 @@ async def get_job_status(job_id: str):
     **Poll this endpoint** every 2-3 seconds until status is "completed" or "failed".
 
     **Status Flow:**
-    `pending` → `preprocessing` → `transcribing` → `analyzing` → `completed`
+    `pending` → `preprocessing` → `extracting_features` → `transcribing` → `analyzing` → `completed`
 
-    **Response when completed:**
-    ```json
-    {
-        "job_id": "abc-123",
-        "status": "completed",
-        "message": "Evaluation completed successfully",
-        "result": {
-            "metadata": { ... },
-            "transcript": { "full_text": "...", "word_count": 150 },
-            "scores": {
-                "overall": 85,
-                "clarity": 90,
-                "pace": 80,
-                "pause_management": 85,
-                "filler_reduction": 75,
-                "repetition_control": 90,
-                "structure": 85
-            },
-            "detailed_analysis": { ... },
-            "improvement_suggestions": [ ... ]
-        }
-    }
-    ```
+    **Response includes:**
+    - `raw_evaluation`: Full detailed evaluation (for teachers/parents)
+    - `child_presentation`: Age-appropriate visual feedback (for Flutter UI)
     """
     if job_id not in jobs:
         raise HTTPException(
@@ -590,7 +596,8 @@ async def get_job_status(job_id: str):
         progress=job.get("progress"),
         created_at=job["created_at"],
         updated_at=job["updated_at"],
-        result=job.get("result"),
+        raw_evaluation=job.get("raw_evaluation"),
+        child_presentation=job.get("child_presentation"),
         error=job.get("error")
     )
 
@@ -618,11 +625,12 @@ async def list_jobs(limit: int = 10, status_filter: Optional[JobStatus] = None):
 def _get_status_message(job_status: JobStatus) -> str:
     """Get human-readable status message"""
     messages = {
-        JobStatus.PENDING: "Job is queued and waiting to start",
-        JobStatus.PREPROCESSING: "Preprocessing audio file",
-        JobStatus.TRANSCRIBING: "Transcribing speech to text",
-        JobStatus.ANALYZING: "Analyzing speech metrics",
-        JobStatus.COMPLETED: "Evaluation completed successfully",
+        JobStatus.PENDING: "Waiting in queue...",
+        JobStatus.PREPROCESSING: "Preparing your audio...",
+        JobStatus.EXTRACTING_FEATURES: "Analyzing your voice...",
+        JobStatus.TRANSCRIBING: "Listening to your speech...",
+        JobStatus.ANALYZING: "Analyzing your performance...",
+        JobStatus.COMPLETED: "Evaluation complete!",
         JobStatus.FAILED: "Evaluation failed"
     }
     return messages.get(job_status, "Unknown status")
@@ -634,12 +642,7 @@ def _get_status_message(job_status: JobStatus) -> str:
 
 @app.post("/webhook/test", tags=["Webhook Testing"])
 async def receive_webhook_test(payload: dict):
-    """
-    Test endpoint to receive webhook callbacks.
-
-    Use this URL as your callback_url for testing:
-    - callback_url: "http://localhost:8000/webhook/test"
-    """
+    """Test endpoint to receive webhook callbacks."""
     global webhook_test_results
 
     job_id = payload.get("job_id", "unknown")
@@ -654,8 +657,12 @@ async def receive_webhook_test(payload: dict):
     print(f"[WEBHOOK RECEIVED] Job: {job_id}")
     print(f"  Status: {payload.get('status')}")
     print(f"  Received at: {received_at}")
-    if payload.get("result"):
-        print(f"  Overall Score: {payload['result'].get('scores', {}).get('overall', 'N/A')}")
+    if payload.get("raw_evaluation"):
+        score = payload["raw_evaluation"].get("scores", {}).get("overall", "N/A")
+        print(f"  Overall Score: {score}")
+    if payload.get("child_presentation"):
+        age_group = payload["child_presentation"].get("age_group", "N/A")
+        print(f"  Child Presentation: {age_group}")
     if payload.get("error"):
         print(f"  Error: {payload.get('error')}")
     print(f"{'='*60}\n")
@@ -669,13 +676,11 @@ async def receive_webhook_test(payload: dict):
 
 @app.get("/webhook/test/{job_id}", tags=["Webhook Testing"])
 async def get_webhook_test_result(job_id: str):
-    """
-    Retrieve the full evaluation result received via webhook for a specific job.
-    """
+    """Retrieve the full evaluation result received via webhook for a specific job."""
     if job_id not in webhook_test_results:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No webhook received for job: {job_id}. The job may still be processing."
+            detail=f"No webhook received for job: {job_id}."
         )
 
     data = webhook_test_results[job_id]
@@ -688,7 +693,8 @@ async def get_webhook_test_result(job_id: str):
         "created_at": payload.get("created_at"),
         "completed_at": payload.get("completed_at"),
         "error": payload.get("error"),
-        "result": payload.get("result")
+        "raw_evaluation": payload.get("raw_evaluation"),
+        "child_presentation": payload.get("child_presentation")
     }
 
 

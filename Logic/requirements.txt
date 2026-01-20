@@ -17,5 +17,9 @@ pydantic>=2.6.0
 python-multipart>=0.0.9
 httpx>=0.27.0  # For async webhook callbacks
 
+# Audio Feature Extraction (RMS, Pitch, Energy analysis)
+librosa>=0.10.0
+soundfile>=0.12.0
+
 # Note: Requires ffmpeg installed on system
 # Install: sudo apt install ffmpeg (Linux) or brew install ffmpeg (Mac)

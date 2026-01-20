@@ -45,12 +45,21 @@ ENV/
 .cache/
 .pytest_cache/
 .mypy_cache/
+.coverage
+htmlcov/
+.tox/
 
 # Evaluation Results (Logic specific)
 evaluation_results/
+*.json
 
 # Whisper Model Cache
 models/
+
+# Test fixtures audio files
+Logic/tests/fixtures/*.mp3
+Logic/tests/fixtures/*.wav
+Logic/tests/fixtures/*.m4a
 
 # -------------------------------------------
 # Flutter / Dart (Frontend folder)

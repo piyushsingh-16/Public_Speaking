@@ -3,9 +3,10 @@ Speech-to-Text Module using faster-whisper
 Local processing - no API costs
 """
 
-from faster_whisper import WhisperModel
 from typing import Dict, List, Optional
+
 import numpy as np
+from faster_whisper import WhisperModel
 
 
 class SpeechToText:
@@ -21,9 +22,14 @@ class SpeechToText:
     # medium/large: best accuracy, much slower
     DEFAULT_MODEL = "base"
 
-    def __init__(self, model_size: str = None, device: str = "cpu", compute_type: str = "int8"):
+    def __init__(
+        self,
+        model_size: Optional[str] = None,
+        device: str = "cpu",
+        compute_type: str = "int8"
+    ):
         """
-        Initialize Speech-to-Text engine
+        Initialize Speech-to-Text engine.
 
         Args:
             model_size: Whisper model size (tiny, base, small, medium, large-v3)
@@ -56,6 +62,7 @@ class SpeechToText:
                 - segments: List of segments with timing
                 - words: List of words with timestamps and confidence
                 - language: Detected language
+                - language_probability: Confidence in language detection
         """
         # Transcribe with word-level timestamps
         segments, info = self.model.transcribe(
@@ -86,7 +93,7 @@ class SpeechToText:
             full_text.append(segment.text.strip())
 
             # Extract word-level data
-            if hasattr(segment, 'words') and segment.words:
+            if hasattr(segment, "words") and segment.words:
                 for word in segment.words:
                     word_data = {
                         "word": word.word.strip(),
@@ -120,7 +127,11 @@ class SpeechToText:
         confidences = [w.get("confidence", 0) for w in words]
         return float(np.mean(confidences))
 
-    def detect_pauses(self, words: List[Dict], threshold: float = 0.5) -> List[Dict]:
+    def detect_pauses(
+        self,
+        words: List[Dict],
+        threshold: float = 0.5
+    ) -> List[Dict]:
         """
         Detect pauses between words.
 
