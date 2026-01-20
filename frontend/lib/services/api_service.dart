@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../models/evaluation_result.dart';
+import '../models/child_presentation.dart';
 
 class ApiService {
   // Change this to your server URL
@@ -139,6 +140,7 @@ class JobStatus {
   final String? message;
   final String? progress;
   final EvaluationResult? result;
+  final ChildPresentation? childPresentation;
   final String? error;
 
   JobStatus({
@@ -147,6 +149,7 @@ class JobStatus {
     this.message,
     this.progress,
     this.result,
+    this.childPresentation,
     this.error,
   });
 
@@ -156,8 +159,13 @@ class JobStatus {
       status: json['status'] ?? 'unknown',
       message: json['message'],
       progress: json['progress'],
-      result: json['result'] != null
-          ? EvaluationResult.fromJson(json['result'])
+      // Parse raw_evaluation for detailed results
+      result: json['raw_evaluation'] != null
+          ? EvaluationResult.fromJson(json['raw_evaluation'])
+          : null,
+      // Parse child_presentation for age-appropriate UI
+      childPresentation: json['child_presentation'] != null
+          ? ChildPresentation.fromJson(json['child_presentation'])
           : null,
       error: json['error'],
     );
@@ -168,6 +176,7 @@ class JobStatus {
   bool get isPending => status == 'pending';
   bool get isProcessing =>
       status == 'preprocessing' ||
+      status == 'extracting_features' ||
       status == 'transcribing' ||
       status == 'analyzing';
 }

@@ -27,6 +27,10 @@ dependencies:
   flutter_animate: ^4.5.0
   percent_indicator: ^4.2.3
 
+  # Sound effects and TTS (for age-appropriate feedback)
+  audioplayers: ^6.0.0
+  flutter_tts: ^4.0.2
+
   # State management
   provider: ^6.1.1
 
@@ -40,3 +44,6 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/sounds/

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../services/evaluation_provider.dart';
-import 'results_screen.dart';
+import 'results/results_router.dart';
 
 class ProcessingScreen extends StatefulWidget {
   final File audioFile;
@@ -58,29 +58,12 @@ class _ProcessingScreenState extends State<ProcessingScreen>
     );
 
     if (mounted) {
-      if (success && provider.result != null) {
-        Navigator.pushReplacement(
+      if (success && (provider.result != null || provider.childPresentation != null)) {
+        // Use ResultsRouter to navigate to age-appropriate results screen
+        ResultsRouter.navigate(
           context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                ResultsScreen(result: provider.result!),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-              return FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(
-                  scale: Tween<double>(begin: 0.95, end: 1.0).animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    ),
-                  ),
-                  child: child,
-                ),
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 600),
-          ),
+          childPresentation: provider.childPresentation,
+          rawResult: provider.result,
         );
       } else {
         // Show error

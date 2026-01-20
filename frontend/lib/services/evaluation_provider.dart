@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 import '../models/evaluation_result.dart';
+import '../models/child_presentation.dart';
 
 enum EvaluationState {
   idle,
@@ -19,12 +20,14 @@ class EvaluationProvider extends ChangeNotifier {
 
   EvaluationState _state = EvaluationState.idle;
   EvaluationResult? _result;
+  ChildPresentation? _childPresentation;
   String? _errorMessage;
   String? _jobId;
   String _progressMessage = '';
 
   EvaluationState get state => _state;
   EvaluationResult? get result => _result;
+  ChildPresentation? get childPresentation => _childPresentation;
   String? get errorMessage => _errorMessage;
   String get progressMessage => _progressMessage;
 
@@ -80,6 +83,10 @@ class EvaluationProvider extends ChangeNotifier {
             _state = EvaluationState.preprocessing;
             _progressMessage = 'Preparing your audio...';
             break;
+          case 'extracting_features':
+            _state = EvaluationState.preprocessing;
+            _progressMessage = 'Analyzing your voice...';
+            break;
           case 'transcribing':
             _state = EvaluationState.transcribing;
             _progressMessage = 'Listening to your speech...';
@@ -91,6 +98,7 @@ class EvaluationProvider extends ChangeNotifier {
           case 'completed':
             _state = EvaluationState.completed;
             _result = status.result;
+            _childPresentation = status.childPresentation;
             _progressMessage = 'Done!';
             notifyListeners();
             return;
@@ -120,6 +128,7 @@ class EvaluationProvider extends ChangeNotifier {
   void reset() {
     _state = EvaluationState.idle;
     _result = null;
+    _childPresentation = null;
     _errorMessage = null;
     _jobId = null;
     _progressMessage = '';
